@@ -5,8 +5,8 @@
 
 $ErrorActionPreference = "Stop"
 
-$repoOwner = "P1N2O"
-$repoName = "office-deployment-tool"
+$repoOwner = "CloudHoang"
+$repoName = "online-ODT"
 $branch   = "main"
 $baseUrl  = "https://raw.githubusercontent.com/$repoOwner/$repoName/$branch"
 
@@ -63,7 +63,7 @@ if (-not (Test-Path $setupExe)) {
 }
 if (-not (Test-Path $xmlSource)) {
     Write-Host "Downloading office365.xml ..." -ForegroundColor Cyan
-    Invoke-WebRequest -Uri "$baseUrl/office365.xml" -OutFile $xmlSource -UseBasicParsing
+    Invoke-WebRequest -Uri "$baseUrl/KHCNTayNinh.xml" -OutFile $xmlSource -UseBasicParsing
 }
 
 # Read original XML template
