@@ -3,8 +3,6 @@
   <Add OfficeClientEdition="32" Channel="PerpetualVL2024" MigrateArch="TRUE">
     <Product ID="Standard2024Volume" PIDKEY="D3VDG-FCNF9-FTV3Q-62W36-24B2Q">
       <Language ID="MatchOS" />
-      <Language ID="en-us" />
-      <Language ID="vi-vn" />
       <Language ID="MatchPreviousMSI" />
       <ExcludeApp ID="Publisher" />
     </Product>
