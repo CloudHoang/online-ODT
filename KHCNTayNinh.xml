@@ -1,0 +1,26 @@
+<Configuration ID="3b0f5939-b26b-49e4-a25c-8bae5638892a">
+  <Info Description="- Tên phần mềm : Microsoft Office LTSC Standard 2024&#xA;- Đơn vị sử dụng: Sở Khoa học và Công nghệ tỉnh Tây Ninh&#xA;- Thành phần   : Word, Excel, PowerPoint, Outlook, OneNote&#xA;- Mô tả tóm tắt: Gói cài đặt chuẩn hóa Microsoft Office LTSC 2024 phục vụ công tác văn phòng nội bộ SKHCN Tây Ninh. Quá trình triển khai diễn ra tự động trong chế độ nền, không làm gián đoạn tài liệu cá nhân. Vui lòng đóng toàn bộ ứng dụng văn phòng đang mở trước khi bấm Thực hiện.&#xA;- Hỗ trợ kỹ thuật: Bộ phận CNTT - Sở KH&amp;CN Tây Ninh" />
+  <Add OfficeClientEdition="32" Channel="PerpetualVL2024" MigrateArch="TRUE">
+    <Product ID="Standard2024Volume" PIDKEY="D3VDG-FCNF9-FTV3Q-62W36-24B2Q">
+      <Language ID="MatchOS" />
+      <Language ID="en-us" />
+      <Language ID="vi-vn" />
+      <Language ID="MatchPreviousMSI" />
+      <ExcludeApp ID="Publisher" />
+    </Product>
+  </Add>
+  <Property Name="SharedComputerLicensing" Value="0" />
+  <Property Name="FORCEAPPSHUTDOWN" Value="FALSE" />
+  <Property Name="DeviceBasedLicensing" Value="0" />
+  <Property Name="SCLCacheOverride" Value="0" />
+  <Property Name="AUTOACTIVATE" Value="1" />
+  <Updates Enabled="TRUE" />
+  <RemoveMSI />
+  <AppSettings>
+    <Setup Name="Company" Value="SKHCN Tay Ninh" />
+    <User Key="software\microsoft\office\16.0\excel\options" Name="defaultformat" Value="51" Type="REG_DWORD" App="excel16" Id="L_SaveExcelfilesas" />
+    <User Key="software\microsoft\office\16.0\powerpoint\options" Name="defaultformat" Value="27" Type="REG_DWORD" App="ppt16" Id="L_SavePowerPointfilesas" />
+    <User Key="software\microsoft\office\16.0\word\options" Name="defaultformat" Value="" Type="REG_SZ" App="word16" Id="L_SaveWordfilesas" />
+  </AppSettings>
+  <Display Level="Full" AcceptEULA="TRUE" />
+</Configuration>
