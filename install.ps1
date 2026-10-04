@@ -139,50 +139,7 @@ function Build-Xml($selectedApps) {
     return $xml
 }
 
-Render-Menu
-
-while ($true) {
-    $key = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-    switch ($key.VirtualKeyCode) {
-        38 { # Up arrow
-            if ($cursor -gt 0) { $cursor-- }; Render-Menu
-        }
-        40 { # Down arrow
-            if ($cursor -lt $appsCount) { $cursor++ }; Render-Menu
-        }
-        32 { # Space
-            if ($cursor -lt $appsCount) {
-                $apps[$cursor].Checked = !$apps[$cursor].Checked
-                Render-Menu
-            }
-        }
-        13 { # Enter
-            if ($cursor -eq $appsCount) {
-                # Proceed
-                Clear-Host
-                $selected = $apps | Where-Object { $_.Checked }
-                if ($selected.Count -eq 0) {
-                    Write-Host "No apps selected. Exiting." -ForegroundColor Yellow
-                    Start-Sleep 2
-                    exit 0
-                }
-                Write-Host "Selected apps: $($selected.Name -join ', ')" -ForegroundColor Green
-                Write-Host "`nGenerating configuration..." -ForegroundColor Cyan
-
-                $tempXml = Join-Path $env:TEMP "office365-install-$(Get-Date -Format 'yyyyMMddHHmmss').xml"
-                $newXml = Build-Xml $selected
-                Set-Content -Path $tempXml -Value $newXml -Encoding UTF8
-
-                Write-Host "Starting Office Deployment Tool..." -ForegroundColor Cyan
-                & $setupExe /configure $tempXml
-
-                Write-Host "`nCleaning up..." -ForegroundColor Gray
-                Remove-Item $tempXml -Force -ErrorAction SilentlyContinue
-                exit 0
-            } elseif ($cursor -lt $appsCount) {
-                $apps[$cursor].Checked = !$apps[$cursor].Checked
-                Render-Menu
-            }
-        }
-    }
-}
+# Chạy trực tiếp cài đặt cấu hình chuẩn hóa, không cần menu tương tác
+Write-Host "Starting Office Deployment Tool (Auto Install)..." -ForegroundColor Cyan
+& $setupExe /configure $xmlSource
+exit 0
