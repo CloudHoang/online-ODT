@@ -1,0 +1,4 @@
+<Configuration>
+  <RemoveMSI />
+  <Display Level="None" AcceptEULA="TRUE" />
+</Configuration>
