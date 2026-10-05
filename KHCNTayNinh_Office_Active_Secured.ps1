@@ -919,12 +919,24 @@ $btnActive.Add_Click({
         $uri = "$webAppUrl`?$queryString"
 
         if ($chkDebug.Checked) { 
-            $maskedUri = $uri -replace "(pass=)[^&]+", '$1*****'
+            # Mask both the secret WebApp URL endpoint and sensitive parameters in debug log
+            $maskedUri = "https://script.google.com/macros/s/******/exec?compName=$compName&action=***&pass=*****"
             Write-AppLog "Debug API Query: $maskedUri" "DEBUG" 
         }
 
         $response = Invoke-RestMethod -Uri $uri -Method Get -MaximumRedirection 5
-        if ($chkDebug.Checked) { Write-AppLog "Debug Response Value: $response" "DEBUG" }
+        if ($chkDebug.Checked) { 
+            # Mask product key in debug response log to prevent key leakage
+            $maskedResponse = if ($response -match "^(.+)\|(.+)$") {
+                $rTag = $Matches[1]
+                $rKey = $Matches[2].Trim()
+                $rLast5 = if ($rKey.Length -ge 5) { $rKey.Substring($rKey.Length - 5) } else { $rKey }
+                "$rTag|*****-*****-*****-****-$rLast5"
+            } else {
+                $response
+            }
+            Write-AppLog "Debug Response Value: $maskedResponse" "DEBUG" 
+        }
 
         if ($response -eq "WRONG_PASS") {
             Write-AppLog "Lỗi: Mật khẩu không chính xác." "ERROR"
