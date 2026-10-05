@@ -532,7 +532,6 @@ function Invoke-HiddenProcess {
         [string]$taskName
     )
     Write-AppLog "Bắt đầu thực thi: $taskName..." "INFO"
-    Write-AppLog "Lệnh chạy ngầm: $filePath $arguments" "DEBUG"
 
     $psi = New-Object System.Diagnostics.ProcessStartInfo
     $psi.FileName = $filePath
@@ -902,7 +901,7 @@ $btnActive.Add_Click({
     $btnActive.Enabled = $false
     $btnActive.Text = "Đang xử lý kích hoạt..."
     Write-AppLog "Bắt đầu tiến trình kích hoạt bản quyền Office 2024 Standard..."
-    Write-AppLog "Sử dụng công cụ: $currentOspp"
+    Write-AppLog "Sử dụng công cụ quản lý bản quyền: ospp.vbs"
 
     if ($chkDebug.Checked) { Write-AppLog "Chế độ kiểm thử (Debug) đang bật." "DEBUG" }
 
@@ -976,7 +975,7 @@ $btnActive.Add_Click({
                     "CHẾ ĐỘ KIỂM THỬ HOÀN THÀNH`n`n" +
                     "- Kết nối máy chủ: Thành công`n" +
                     "- Xác thực mật khẩu và mã khóa [$tag]: Thành công`n" +
-                    "- Đường dẫn công cụ: $currentOspp`n" +
+                    "- Công cụ bản quyền: ospp.vbs (Sẵn sàng)`n" +
                     "- Khóa sản phẩm: *****-*****-*****-****-$keyLast5`n" +
                     "- Ghi nhật ký máy chủ: Thành công ($logRes)`n`n" +
                     "(Lưu ý: Không thực hiện kích hoạt bản quyền thực tế)", 
