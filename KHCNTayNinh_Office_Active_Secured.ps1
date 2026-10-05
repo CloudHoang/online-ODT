@@ -1,7 +1,7 @@
 # ==============================================================================
-# BẢO MẬT CẤU HÌNH TỪ XA: ĐỒNG BỘ $webAppUrl VÀ $scriptUrl QUA TỆP MÃ HÓA config.enc
+# SECURE REMOTE CONFIGURATION: SYNC $webAppUrl & $scriptUrl VIA ENCRYPTED config.enc
 # ==============================================================================
-# URL tải config.enc được mã hóa dạng mảng byte để che giấu hoàn toàn chuỗi thô trên GitHub
+# Obfuscate config.enc download URL as a byte array to avoid storing raw GitHub URL in source code
 $remoteConfigBytes = [byte[]]@(104,116,116,112,115,58,47,47,114,97,119,46,103,105,116,104,117,98,117,115,101,114,99,111,110,116,101,110,116,46,99,111,109,47,67,108,111,117,100,72,111,97,110,103,47,111,110,108,105,110,101,45,79,68,84,47,109,97,105,110,47,99,111,110,102,105,103,46,101,110,99)
 $remoteConfigUrl   = [System.Text.Encoding]::ASCII.GetString($remoteConfigBytes)
 
@@ -9,22 +9,22 @@ $webAppUrl = $null
 $scriptUrl = $null
 
 try {
-    # 1. Gọi tải dữ liệu cấu hình mã hóa Base64 JSON từ xa
+    # 1. Download Base64-encoded encrypted JSON configuration payload remotely
     $encConfig = (Invoke-RestMethod -Uri $remoteConfigUrl -Method Get -TimeoutSec 6 -UseBasicParsing).Trim()
     
-    # 2. Giải mã Base64 sang JSON Text
+    # 2. Decode Base64 to JSON string
     $jsonBytes = [System.Convert]::FromBase64String($encConfig)
     $jsonText  = [System.Text.Encoding]::UTF8.GetString($jsonBytes)
     
-    # 3. Phân tách và nạp đồng thời cả 2 biến từ gói JSON
+    # 3. Parse JSON and populate both variables simultaneously
     $cfgObj    = $jsonText | ConvertFrom-Json
     $webAppUrl = $cfgObj.webAppUrl
     $scriptUrl = $cfgObj.scriptUrl
 } catch {
-    # Tự động chuyển sang cấu hình dự phòng nội bộ nếu mất kết nối mạng hoặc tệp từ xa chưa sẵn sàng
+    # Internal fallback if remote config download fails
 }
 
-# Fallback an toàn (Ghép chuỗi động, không lưu plaintext URL)
+# Safe fallback (dynamically assembled strings, avoid exposing raw URLs in plaintext)
 if ([string]::IsNullOrWhiteSpace($webAppUrl)) {
     $webAppUrl = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String("aHR0cHM6Ly9zY3JpcHQuZ29vZ2xlLmNvbS9tYWNyb3Mvcy9BS2Z5Y2J4cHlfa1Q4RTRXU1YxcmhXZ2JaMi0zNWZfSWR4SHdNVkNTT01QZlBWSG5Gc1padUpjOFAzZlBVa3hWcXB6bXB2Tlhydy9leGVj"))
 }
@@ -39,7 +39,7 @@ $compName  = $env:COMPUTERNAME
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
-# Tự động ẩn cửa sổ console PowerShell nếu người dùng chạy từ file hoặc cmd
+# Automatically hide PowerShell console window when launched from file or CMD
 try {
     $null = Add-Type -MemberDefinition @"
 [DllImport("user32.dll")]
@@ -77,15 +77,15 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administra
     exit
 }
 
-# Helper Function: Giải mã thông số nhạy cảm AES-256 với khóa dẫn xuất RFC2898/PBKDF2
+# Helper Function: Decrypt sensitive parameter with AES-256 (RFC2898/PBKDF2 key derivation)
 function Get-DecryptedAction {
     param(
-        [string]$cipherBase64 = "ytbRstYG9Kv79JLPm2j1IA=="
+        [string]$cipherBase64 = "JpnM+uVx/g0IUdg3Wp5/Cw=="
     )
     try {
-        # Khóa dẫn xuất AES-256 (32 bytes Key + 16 bytes IV) từ chuỗi hạt giống ứng dụng
-        $seed = [byte[]]@(75, 72, 67, 78, 95, 84, 97, 121, 78, 105, 110, 104, 95, 50, 48, 50, 52) # "KHCN_TayNinh_2024"
-        $salt = [byte[]]@(83, 48, 95, 75, 72, 67, 78, 95, 84, 78, 95, 50, 48, 50, 52)             # "S0_KHCN_TN_2024"
+        # Derive AES-256 key (32 bytes Key + 16 bytes IV) from internal application seed
+        $seed = [byte[]]@(75, 72, 67, 78, 95, 84, 97, 121, 78, 105, 110, 104, 95, 50, 48, 50, 52) 
+        $salt = [byte[]]@(83, 48, 95, 75, 72, 67, 78, 95, 84, 78, 95, 50, 48, 50, 52)
         $derive = New-Object System.Security.Cryptography.Rfc2898DeriveBytes ($seed, $salt, 1500)
 
         $aes = [System.Security.Cryptography.Aes]::Create()
@@ -97,12 +97,12 @@ function Get-DecryptedAction {
         $plainBytes = $decryptor.TransformFinalBlock($cipherBytes, 0, $cipherBytes.Length)
         return [Text.Encoding]::UTF8.GetString($plainBytes)
     } catch {
-        # Fallback an toàn nếu môi trường không hỗ trợ crypto
+        # Safe fallback if cryptographic environment encounters issues
         return "check_pass"
     }
 }
 
-# Helper Function: Nạp khóa bản quyền Office an toàn (Chống Process Sniffing / Ẩn tham số /inpkey)
+# Helper Function: Securely install Office product key (Anti-Process Sniffing / Hide /inpkey argument)
 function Install-OfficeProductKeySafely {
     param(
         [Parameter(Mandatory=$true)]
@@ -115,15 +115,15 @@ function Install-OfficeProductKeySafely {
     $runnerFile = $null
 
     try {
-        # 1. Tạo tệp tạm thời với tên ngẫu nhiên
+        # 1. Create temporary file with random name in Temp directory
         $tempDir = [System.IO.Path]::GetTempPath()
         $keyFile = Join-Path $tempDir ([System.IO.Path]::GetRandomFileName() + ".dat")
         $runnerFile = Join-Path $tempDir ([System.IO.Path]::GetRandomFileName() + ".vbs")
 
-        # 2. Ghi khóa bản quyền vào tệp tạm
+        # 2. Write product key to temporary file
         [System.IO.File]::WriteAllText($keyFile, $productKey.Trim(), [System.Text.Encoding]::ASCII)
 
-        # 3. Phân quyền ACL bảo mật (Chỉ tài khoản người dùng hiện tại và SYSTEM được đọc)
+        # 3. Restrict ACL permissions (Only current user and SYSTEM can access)
         try {
             $acl = New-Object System.Security.AccessControl.FileSecurity
             $currentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().User
@@ -135,7 +135,7 @@ function Install-OfficeProductKeySafely {
             Set-Acl -Path $keyFile -AclObject $acl -ErrorAction SilentlyContinue
         } catch { }
 
-        # 4. Tạo VBScript Runner để nạp khóa trong tiến trình nội bộ (không để lộ argument ra cscript.exe)
+        # 4. Generate in-process VBScript runner (Avoids exposing key in cscript.exe command line arguments)
         $escKeyFile = $keyFile -replace '\\', '\\'
         $escOspp    = $osppPath -replace '\\', '\\'
 
@@ -154,11 +154,11 @@ If fso.FileExists("$escKeyFile") Then
 End If
 
 If k = "" Then
-    WScript.Echo "<ERROR> Không thể đọc khóa từ tệp lưu trữ tạm thời"
+    WScript.Echo "<ERROR> Không thể đọc khóa từ bộ lưu trữ tạm thời"
     WScript.Quit 1
 End If
 
-' Cách 1: Nạp trực tiếp qua WMI SoftwareLicensingService (Không tạo tiến trình mới, tuyệt đối an toàn)
+' Method 1: Install directly via WMI SoftwareLicensingService (In-process, highest security)
 On Error Resume Next
 Set wmi = GetObject("winmgmts:\\.\root\cimv2")
 Set lic = wmi.InstancesOf("SoftwareLicensingService")
@@ -174,7 +174,7 @@ For Each svc In lic
     End If
 Next
 
-' Cách 2: Nếu WMI chưa hoàn tất, nạp thông qua ospp.vbs
+' Method 2: If WMI did not complete, execute via ospp.vbs
 If Not installed Then
     Err.Clear
     Set shell = CreateObject("WScript.Shell")
@@ -187,14 +187,14 @@ End If
 
         [System.IO.File]::WriteAllText($runnerFile, $vbsCode, [System.Text.Encoding]::ASCII)
 
-        # 5. Thực thi Runner ngầm - dòng lệnh chỉ là cscript.exe //nologo "runner.vbs" (Ẩn toàn bộ key)
+        # 5. Run runner hidden - Process arguments only display cscript.exe //nologo "runner.vbs"
         $result = Invoke-HiddenConsoleOutput "cscript.exe" "//nologo `"$runnerFile`""
         return $result
 
     } catch {
         return "ERROR: $_"
     } finally {
-        # 6. Dọn dẹp sạch sẽ tất cả tệp tạm
+        # 6. Clean up temporary files
         if ($keyFile -and (Test-Path $keyFile)) {
             Remove-Item -Path $keyFile -Force -ErrorAction SilentlyContinue
         }
@@ -241,7 +241,7 @@ function Get-OfficeOsppPath {
     return $null
 }
 
-# Helper Function: Phân loại kiểu cài đặt Office (C2R, MSI, BOTH, NONE)
+# Helper Function: Classify Office installation type (C2R, MSI, BOTH, NONE)
 function Get-OfficeInstallType {
     $hasC2R = $false
     $hasMSI = $false
@@ -249,7 +249,7 @@ function Get-OfficeInstallType {
     $msiList = @()
     $primarySuite = $null
 
-    # 1. KIỂM TRA CLICK-TO-RUN (C2R)
+    # 1. CHECK CLICK-TO-RUN (C2R)
     $c2rReg = "HKLM:\SOFTWARE\Microsoft\Office\ClickToRun\Configuration"
     $c2rIds = $null
     if (Test-Path $c2rReg) {
@@ -260,7 +260,7 @@ function Get-OfficeInstallType {
         }
     }
 
-    # 2. QUÉT REGISTRY UNINSTALL ĐỂ PHÂN LOẠI
+    # 2. SCAN UNINSTALL REGISTRY FOR CLASSIFICATION
     $uninstallKeys = @(
         "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*",
         "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*"
@@ -270,17 +270,17 @@ function Get-OfficeInstallType {
     foreach ($app in $installedApps) {
         if (-not $app.DisplayName) { continue }
 
-        # Lọc bỏ tuyệt đối các Add-in, Extensibility, MUI, Proofing, Runtime
+        # Filter out add-ins, extensibility, proofing, and language packs
         if ($app.DisplayName -match '(?i)Add-in|Component|Extensibility|Proofing|Language Pack|Runtime|MUI') { continue }
 
-        # Nhận diện Click-to-Run (C2R)
+        # Identify Click-to-Run (C2R)
         if ($app.UninstallString -match 'OfficeClickToRun\.exe' -and ($app.DisplayName -match 'Microsoft (Office|365)')) {
             $hasC2R = $true
             if ($c2rList -notcontains $app.DisplayName) { $c2rList += $app.DisplayName }
             if (-not $primarySuite -and $app.DisplayName -notmatch 'Visio|Project') { $primarySuite = $app.DisplayName }
         }
 
-        # Nhận diện Windows Installer (MSI)
+        # Identify Windows Installer (MSI)
         if (($app.WindowsInstaller -eq 1 -or $app.UninstallString -match 'msiexec') -and 
             ($app.DisplayName -match '^Microsoft Office (Standard|Professional|ProPlus|Home|Personal|Enterprise|\d{4})')) {
             $hasMSI = $true
@@ -289,7 +289,7 @@ function Get-OfficeInstallType {
         }
     }
 
-    # Nếu chưa bắt được tên Suite từ Uninstall nhưng có C2R IDs, ánh xạ tên
+    # If Suite name was not retrieved from Uninstall keys but C2R IDs exist, map name
     if (-not $primarySuite -and $c2rIds) {
         if ($c2rIds -match 'Standard2024Volume|Standard2024') {
             $primarySuite = "Microsoft Office LTSC Standard 2024"
@@ -300,7 +300,7 @@ function Get-OfficeInstallType {
         }
     }
 
-    # 3. KIỂM TRA ĐÚNG BẢN MICROSOFT OFFICE 2024 LTSC STANDARD
+    # 3. CHECK FOR EXACT MICROSOFT OFFICE 2024 LTSC STANDARD EDITION
     $is2024Standard = $false
     if ($c2rIds -and ($c2rIds -match 'Standard2024Volume' -or ($c2rIds -match 'Standard' -and $c2rIds -match '2024'))) {
         $is2024Standard = $true
@@ -308,7 +308,7 @@ function Get-OfficeInstallType {
         $is2024Standard = $true
     }
 
-    # Xác định trạng thái cài đặt
+    # Determine installation state
     $state = "NONE"
     if ($hasC2R -and $hasMSI) { $state = "BOTH" }
     elseif ($hasC2R)          { $state = "C2R_ONLY" }
@@ -325,9 +325,9 @@ function Get-OfficeInstallType {
     }
 }
 
-# --- GUI FORM CREATION ---
+# --- INITIALIZE GUI FORM ---
 $form = New-Object System.Windows.Forms.Form
-$form.Text = "Công cụ chuẩn hóa và kích hoạt Office 2024 LTSC - Sở KH&CN Tây Ninh"
+$form.Text = "Sở KH&CN Tây Ninh - Công cụ Chuẩn hóa & Kích hoạt Office 2024 LTSC Standard"
 $form.Size = New-Object System.Drawing.Size(580, 700)
 $form.StartPosition = 'CenterScreen'
 $form.FormBorderStyle = 'FixedSingle'
@@ -335,19 +335,19 @@ $form.MaximizeBox = $false
 
 # 1. GroupBox Instructions
 $gbGuide = New-Object System.Windows.Forms.GroupBox
-$gbGuide.Text = "Hướng dẫn quy trình thực hiện"
+$gbGuide.Text = "Hướng dẫn thực hiện"
 $gbGuide.Location = New-Object System.Drawing.Point(15, 10)
 $gbGuide.Size = New-Object System.Drawing.Size(535, 80)
 
 $lblGuide = New-Object System.Windows.Forms.Label
 $lblGuide.Location = New-Object System.Drawing.Point(12, 16)
 $lblGuide.Size = New-Object System.Drawing.Size(510, 58)
-$lblGuide.Text = "Bước 1: Kiểm tra phiên bản Office hiện có trên máy tính.`nBước 2: Gỡ bỏ phiên bản Office cũ không phù hợp (nếu có).`nBước 3: Cài đặt Microsoft Office 2024 LTSC Standard.`nBước 4: Nhập mật khẩu và tiến hành kích hoạt bản quyền MAK."
+$lblGuide.Text = "Bước 1: Kiểm tra phiên bản Office hiện tại trên máy tính.`nBước 2: Gỡ bỏ phiên bản Office cũ/không tương thích (nếu có).`nBước 3: Cài đặt Microsoft Office 2024 LTSC Standard.`nBước 4: Nhập mật khẩu và kích hoạt bản quyền MAK."
 
 $gbGuide.Controls.Add($lblGuide)
 $form.Controls.Add($gbGuide)
 
-# 2. GroupBox Workflow Controls
+# 2. GroupBox Workflow Progress
 $gbSteps = New-Object System.Windows.Forms.GroupBox
 $gbSteps.Text = "Tiến trình thực hiện"
 $gbSteps.Location = New-Object System.Drawing.Point(15, 95)
@@ -360,7 +360,7 @@ $lblStatus.Text = "Trạng thái: Chưa kiểm tra phiên bản Office"
 $lblStatus.Font = New-Object System.Drawing.Font("Segoe UI", 9.0, [System.Drawing.FontStyle]::Italic)
 $lblStatus.ForeColor = [System.Drawing.Color]::FromArgb(100, 116, 139)
 
-# Nút Kiểm tra phiên bản Office (Luôn hiển thị)
+# Button: Check Office Version (Always visible)
 $btnCheck = New-Object System.Windows.Forms.Button
 $btnCheck.Location = New-Object System.Drawing.Point(15, 45)
 $btnCheck.Size = New-Object System.Drawing.Size(505, 34)
@@ -369,7 +369,7 @@ $btnCheck.Font = New-Object System.Drawing.Font("Segoe UI", 9.5, [System.Drawing
 $btnCheck.BackColor = [System.Drawing.Color]::FromArgb(37, 99, 235)
 $btnCheck.ForeColor = [System.Drawing.Color]::White
 
-# Nút Gỡ bỏ Office cũ (Chỉ hiện khi máy có Office không phù hợp)
+# Button: Remove Legacy Office (Visible only when non-standard version detected)
 $btnUninstall = New-Object System.Windows.Forms.Button
 $btnUninstall.Location = New-Object System.Drawing.Point(15, 85)
 $btnUninstall.Size = New-Object System.Drawing.Size(505, 34)
@@ -379,7 +379,7 @@ $btnUninstall.BackColor = [System.Drawing.Color]::FromArgb(220, 38, 38)
 $btnUninstall.ForeColor = [System.Drawing.Color]::White
 $btnUninstall.Visible = $false
 
-# Nút Cài đặt Office 2024 LTSC Standard (Hiện khi máy sạch hoặc sau khi gỡ xong)
+# Button: Install Office 2024 LTSC Standard (Visible when clean or after removal)
 $btnInstall = New-Object System.Windows.Forms.Button
 $btnInstall.Location = New-Object System.Drawing.Point(15, 85)
 $btnInstall.Size = New-Object System.Drawing.Size(505, 34)
@@ -395,9 +395,9 @@ $gbSteps.Controls.Add($btnUninstall)
 $gbSteps.Controls.Add($btnInstall)
 $form.Controls.Add($gbSteps)
 
-# 3. GroupBox Activation Controls (Chỉ hiện khi ĐÃ ĐÚNG bản 2024)
+# 3. GroupBox Activation Controls (Visible when standard 2024 edition is installed)
 $gbActive = New-Object System.Windows.Forms.GroupBox
-$gbActive.Text = "Kích hoạt bản quyền Office 2024 LTSC Standard"
+$gbActive.Text = "Kích hoạt Microsoft Office 2024 LTSC Standard"
 $gbActive.Location = New-Object System.Drawing.Point(15, 195)
 $gbActive.Size = New-Object System.Drawing.Size(535, 105)
 $gbActive.Visible = $false
@@ -417,7 +417,7 @@ $chkDebug.Location = New-Object System.Drawing.Point(395, 23)
 $chkDebug.Size = New-Object System.Drawing.Size(120, 20)
 $chkDebug.Text = "Chế độ kiểm thử (Debug)"
 
-# Nút Kích hoạt Office 2024 MAK
+# Button: Activate Office 2024 MAK
 $btnActive = New-Object System.Windows.Forms.Button
 $btnActive.Location = New-Object System.Drawing.Point(135, 56)
 $btnActive.Size = New-Object System.Drawing.Size(240, 38)
@@ -432,7 +432,7 @@ $gbActive.Controls.Add($chkDebug)
 $gbActive.Controls.Add($btnActive)
 $form.Controls.Add($gbActive)
 
-# 4. GroupBox Logs Output
+# 4. GroupBox Activity Log
 $gbLogs = New-Object System.Windows.Forms.GroupBox
 $gbLogs.Text = "Nhật ký hoạt động"
 $gbLogs.Location = New-Object System.Drawing.Point(15, 195)
@@ -456,7 +456,7 @@ $btnCopyLog.Text = "Sao chép nhật ký"
 $btnSaveLog = New-Object System.Windows.Forms.Button
 $btnSaveLog.Location = New-Object System.Drawing.Point(155, 402)
 $btnSaveLog.Size = New-Object System.Drawing.Size(130, 30)
-$btnSaveLog.Text = "Lưu tệp (.txt)"
+$btnSaveLog.Text = "Lưu file (.txt)"
 
 $gbLogs.Controls.Add($txtLog)
 $gbLogs.Controls.Add($btnCopyLog)
@@ -524,7 +524,7 @@ function Write-AppLog {
     $txtLog.ScrollToCaret()
 }
 
-# Helper Function: Thực thi tiến trình ngầm hoàn toàn (Ẩn console, không làm đơ giao diện)
+# Helper Function: Execute background process completely hidden (No console flash, non-blocking UI)
 function Invoke-HiddenProcess {
     param(
         [string]$filePath, 
@@ -532,7 +532,7 @@ function Invoke-HiddenProcess {
         [string]$taskName
     )
     Write-AppLog "Bắt đầu thực thi: $taskName..." "INFO"
-    Write-AppLog "Lệnh thực thi trong nền: $filePath $arguments" "DEBUG"
+    Write-AppLog "Lệnh chạy ngầm: $filePath $arguments" "DEBUG"
 
     $psi = New-Object System.Diagnostics.ProcessStartInfo
     $psi.FileName = $filePath
@@ -544,7 +544,7 @@ function Invoke-HiddenProcess {
     try {
         $proc = [System.Diagnostics.Process]::Start($psi)
     } catch {
-        Write-AppLog "LỖI KHỞI CHẠY TIẾN TRÌNH: $_" "ERROR"
+        Write-AppLog "LỖI KHỞI ĐỘNG TIẾN TRÌNH: $_" "ERROR"
         return -1
     }
 
@@ -554,7 +554,7 @@ function Invoke-HiddenProcess {
         Start-Sleep -Milliseconds 800
         $elapsed++
         if ($elapsed % 12 -eq 0) {
-            Write-AppLog "$taskName đang chạy trong nền (Đã chạy $([int]($elapsed * 0.8))s), vui lòng đợi..." "INFO"
+            Write-AppLog "$taskName đang chạy ngầm (đã chạy $([int]($elapsed * 0.8)) giây), vui lòng đợi..." "INFO"
         }
     }
 
@@ -563,7 +563,7 @@ function Invoke-HiddenProcess {
     return $exitCode
 }
 
-# Helper Function: Thực thi lệnh console ngầm và thu nhận stdout/stderr (không mở cửa sổ CMD/Console)
+# Helper Function: Execute console command hidden and capture stdout/stderr (No CMD window)
 function Invoke-HiddenConsoleOutput {
     param(
         [string]$filePath, 
@@ -589,32 +589,32 @@ function Invoke-HiddenConsoleOutput {
     }
 }
 
-Write-AppLog "Công cụ chuẩn hóa và kích hoạt Office 2024 LTSC Standard đã sẵn sàng."
+Write-AppLog "Công cụ chuẩn hóa & kích hoạt Office 2024 LTSC Standard đã sẵn sàng."
 Write-AppLog "Tên máy tính: $compName"
-Write-AppLog "Vui lòng chọn 'Kiểm tra phiên bản Office hiện tại' để bắt đầu."
+Write-AppLog "Vui lòng bấm 'Kiểm tra phiên bản Office hiện tại' để bắt đầu."
 
 # --- EVENT HANDLERS ---
 
-# Nút Sao chép nhật ký
+# Button: Copy Log
 $btnCopyLog.Add_Click({
     if ([string]::IsNullOrWhiteSpace($txtLog.Text)) { return }
     [System.Windows.Forms.Clipboard]::SetText($txtLog.Text)
-    [System.Windows.Forms.MessageBox]::Show("Đã sao chép nội dung nhật ký vào khay nhớ tạm.", "Thông báo", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+    [System.Windows.Forms.MessageBox]::Show("Đã sao chép nội dung nhật ký vào Clipboard.", "Thông báo", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
 })
 
-# Nút Lưu tệp nhật ký
+# Button: Save Log to File (.txt)
 $btnSaveLog.Add_Click({
     if ([string]::IsNullOrWhiteSpace($txtLog.Text)) { return }
     $sfd = New-Object System.Windows.Forms.SaveFileDialog
-    $sfd.Filter = "Text Files (*.txt)|*.txt"
-    $sfd.FileName = "Office2024_Standard_Log_$compName_$(Get-Date -Format 'yyyyMMdd_HHmmss').txt"
+    $sfd.Filter = "Tệp văn bản (*.txt)|*.txt"
+    $sfd.FileName = "NhatKy_Office2024_Standard_$compName_$(Get-Date -Format 'yyyyMMdd_HHmmss').txt"
     if ($sfd.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
         $txtLog.Text | Out-File -FilePath $sfd.FileName -Encoding utf8
-        [System.Windows.Forms.MessageBox]::Show("Đã lưu tệp nhật ký thành công.", "Thông báo", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+        [System.Windows.Forms.MessageBox]::Show("Đã lưu nhật ký thành công vào tệp.", "Thông báo", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
     }
 })
 
-# Nút Kiểm Tra Phiên Bản Office
+# Button: Check Office Version
 $btnCheck.Add_Click({
     $btnCheck.Enabled = $false
     $btnCheck.Text = "Đang kiểm tra hệ thống..."
@@ -623,57 +623,57 @@ $btnCheck.Add_Click({
     $officeInfo = Get-OfficeInstallType
 
     if ($officeInfo.Is2024Standard) {
-        # Đã đúng: Microsoft Office 2024 LTSC Standard
+        # Standard: Microsoft Office 2024 LTSC Standard is installed
         $lblStatus.Text = "Trạng thái: Đã cài đặt Microsoft Office 2024 LTSC Standard"
         $lblStatus.ForeColor = [System.Drawing.Color]::FromArgb(22, 163, 74) # Green
 
-        Write-AppLog "Kết quả kiểm tra: Máy tính đã cài đặt đúng phiên bản Microsoft Office 2024 LTSC Standard." "SUCCESS"
+        Write-AppLog "Kết quả kiểm tra: Máy tính ĐÃ CÀI ĐẶT đúng bộ Microsoft Office 2024 LTSC Standard." "SUCCESS"
         Write-AppLog "Chi tiết phiên bản: $($officeInfo.SuiteName)" "SUCCESS"
         Write-AppLog "Chuyển sang bước kích hoạt bản quyền MAK." "INFO"
 
         Update-UILayout "READY_TO_ACTIVE"
 
         [System.Windows.Forms.MessageBox]::Show(
-            "Máy tính đã cài đặt phiên bản Microsoft Office 2024 LTSC Standard.`n`n(Phiên bản: $($officeInfo.SuiteName))`n`nVui lòng nhập mật khẩu và chọn 'Kích hoạt bản quyền Office 2024' để hoàn tất.",
+            "Máy tính đã cài đặt Microsoft Office 2024 LTSC Standard.`n`n(Phiên bản: $($officeInfo.SuiteName))`n`nVui lòng nhập mật khẩu kích hoạt và nhấn 'Kích hoạt bản quyền Office 2024' để hoàn tất.",
             "Kiểm tra hoàn tất",
             [System.Windows.Forms.MessageBoxButtons]::OK,
             [System.Windows.Forms.MessageBoxIcon]::Information
         )
     } elseif ($officeInfo.State -eq "NONE") {
-        # Chưa cài Office
-        $lblStatus.Text = "Trạng thái: Chưa có phiên bản Office trên hệ thống"
+        # No Office installed on the system
+        $lblStatus.Text = "Trạng thái: Máy tính chưa cài đặt bất kỳ bộ Office nào"
         $lblStatus.ForeColor = [System.Drawing.Color]::FromArgb(37, 99, 235) # Blue
 
-        Write-AppLog "Kết quả kiểm tra: Chưa phát hiện phiên bản Office nào trên hệ thống." "INFO"
-        Write-AppLog "Bỏ qua bước gỡ bỏ. Chuyển sang bước cài đặt Office 2024 LTSC Standard." "INFO"
+        Write-AppLog "Kết quả kiểm tra: Không tìm thấy phiên bản Office nào trên máy tính." "INFO"
+        Write-AppLog "Bỏ qua bước gỡ bỏ. Chuyển thẳng sang bước Cài đặt Office 2024 LTSC Standard." "INFO"
 
         Update-UILayout "READY_TO_INSTALL"
 
         [System.Windows.Forms.MessageBox]::Show(
-            "Máy tính chưa cài đặt Office.`n`nHệ thống chuyển sang bước 'Cài đặt Office 2024 LTSC Standard'.",
+            "Máy tính chưa cài đặt Office.`n`nChuyển sang bước 'Cài đặt Office 2024 LTSC Standard'.",
             "Thông báo",
             [System.Windows.Forms.MessageBoxButtons]::OK,
             [System.Windows.Forms.MessageBoxIcon]::Information
         )
     } else {
-        # Có bản cũ không phù hợp
-        $lblStatus.Text = "Trạng thái: Phiên bản hiện tại chưa phù hợp ($($officeInfo.SuiteName))"
+        # Incompatible or legacy Office version detected
+        $lblStatus.Text = "Trạng thái: Đang cài phiên bản không đúng chuẩn ($($officeInfo.SuiteName))"
         $lblStatus.ForeColor = [System.Drawing.Color]::FromArgb(220, 38, 38) # Red
 
-        Write-AppLog "Kết quả kiểm tra: Phiên bản hiện tại không phải là Microsoft Office 2024 LTSC Standard." "WARN"
+        Write-AppLog "Kết quả kiểm tra: Phiên bản hiện tại KHÔNG PHẢI là Microsoft Office 2024 LTSC Standard." "WARN"
         Write-AppLog "Phiên bản thực tế đang cài: $($officeInfo.SuiteName)" "WARN"
-        Write-AppLog "Phân loại bộ cài hiện tại: $($officeInfo.State)" "INFO"
+        Write-AppLog "Loại hình cài đặt: $($officeInfo.State)" "INFO"
 
         if ($officeInfo.HasC2R) { Write-AppLog "-> Phát hiện Click-to-Run (C2R): $($officeInfo.C2R_Apps)" "WARN" }
         if ($officeInfo.HasMSI) { Write-AppLog "-> Phát hiện Windows Installer (MSI): $($officeInfo.MSI_Apps)" "WARN" }
 
-        Write-AppLog "Yêu cầu: Cần gỡ bỏ phiên bản cũ trước khi cài đặt bản chuẩn." "INFO"
+        Write-AppLog "Yêu cầu: Cần gỡ bỏ toàn bộ Office cũ trước khi cài đặt bộ chuẩn." "INFO"
 
         Update-UILayout "NEED_UNINSTALL"
 
         [System.Windows.Forms.MessageBox]::Show(
-            "Phát hiện phiên bản Office hiện tại không phù hợp quy chuẩn:`n- Phiên bản: $($officeInfo.SuiteName)`n- Kiểu cài đặt: $($officeInfo.State)`n`nVui lòng chọn 'Gỡ bỏ phiên bản Office cũ' để tiếp tục.",
-            "Yêu cầu gỡ bỏ phiên bản cũ",
+            "Phát hiện phiên bản Office không đúng chuẩn:`n- Phiên bản: $($officeInfo.SuiteName)`n- Loại cài đặt: $($officeInfo.State)`n`nVui lòng nhấn nút 'Gỡ bỏ phiên bản Office cũ' để tiếp tục.",
+            "Cần gỡ bỏ phiên bản cũ",
             [System.Windows.Forms.MessageBoxButtons]::OK,
             [System.Windows.Forms.MessageBoxIcon]::Warning
         )
@@ -683,18 +683,18 @@ $btnCheck.Add_Click({
     $btnCheck.Text = "Kiểm tra phiên bản Office hiện tại"
 })
 
-# Nút Gỡ Bỏ Phiên Bản Office Cũ (Chạy ngầm)
+# Button: Remove Legacy Office (Runs hidden in background)
 $btnUninstall.Add_Click({
     $officeInfo = Get-OfficeInstallType
 
     if ($officeInfo.State -eq "BOTH") {
-        $confirmMsg = "Hệ thống ghi nhận cả hai định dạng cài đặt Office cũ:`n- Click-to-Run (C2R): $($officeInfo.C2R_Apps)`n- Windows Installer (MSI): $($officeInfo.MSI_Apps)`n`nTiến trình gỡ bỏ sẽ được thực hiện tự động trong nền.`n`nXác nhận tiếp tục thực hiện?"
+        $confirmMsg = "Hệ thống phát hiện cả 2 dạng Office cũ trên máy:`n- Click-to-Run (C2R): $($officeInfo.C2R_Apps)`n- Windows Installer (MSI): $($officeInfo.MSI_Apps)`n`nQuá trình gỡ bỏ sẽ chạy ngầm tự động.`n`nBạn có chắc chắn muốn gỡ bỏ hoàn toàn?"
     } elseif ($officeInfo.State -eq "C2R_ONLY") {
-        $confirmMsg = "Phát hiện phiên bản Office Click-to-Run (C2R):`n$($officeInfo.C2R_Apps)`n`nTiến trình gỡ bỏ sẽ được thực hiện tự động trong nền.`n`nXác nhận tiếp tục thực hiện?"
+        $confirmMsg = "Phát hiện Office dạng Click-to-Run (C2R):`n$($officeInfo.C2R_Apps)`n`nQuá trình gỡ bỏ sẽ chạy ngầm tự động.`n`nBạn có chắc chắn muốn gỡ bỏ hoàn toàn?"
     } elseif ($officeInfo.State -eq "MSI_ONLY") {
-        $confirmMsg = "Phát hiện phiên bản Office Windows Installer (MSI):`n$($officeInfo.MSI_Apps)`n`nTiến trình gỡ bỏ sẽ được thực hiện tự động trong nền.`n`nXác nhận tiếp tục thực hiện?"
+        $confirmMsg = "Phát hiện Office dạng Windows Installer (MSI):`n$($officeInfo.MSI_Apps)`n`nQuá trình gỡ bỏ sẽ chạy ngầm tự động.`n`nBạn có chắc chắn muốn gỡ bỏ hoàn toàn?"
     } else {
-        Write-AppLog "Không có phiên bản Office cũ cần gỡ bỏ." "INFO"
+        Write-AppLog "Không có phiên bản Office cũ nào cần gỡ bỏ." "INFO"
         Update-UILayout "READY_TO_INSTALL"
         return
     }
@@ -707,15 +707,15 @@ $btnUninstall.Add_Click({
     )
 
     if ($confirm -ne [System.Windows.Forms.DialogResult]::Yes) {
-        Write-AppLog "Đã hủy thao tác gỡ bỏ Office cũ." "WARN"
+        Write-AppLog "Người dùng đã hủy thao tác gỡ bỏ Office." "WARN"
         return
     }
 
     $btnUninstall.Enabled = $false
-    $btnUninstall.Text = "Đang gỡ bỏ trong nền..."
-    Write-AppLog "Bắt đầu tiến trình gỡ bỏ Office cũ..." "INFO"
+    $btnUninstall.Text = "Đang gỡ bỏ ngầm..."
+    Write-AppLog "Bắt đầu tiến trình gỡ bỏ phiên bản Office cũ..." "INFO"
 
-    # Thư mục tạm lưu công cụ
+    # Temporary working directory
     $tempDir = Join-Path $env:TEMP "Office2024_Standard_Setup"
     if (-not (Test-Path $tempDir)) { New-Item -ItemType Directory -Path $tempDir -Force | Out-Null }
 
@@ -723,20 +723,20 @@ $btnUninstall.Add_Click({
     $xmlRemoveC2R = Join-Path $tempDir "remove_c2r.xml"
     $xmlRemoveMSI = Join-Path $tempDir "remove_msi.xml"
 
-    # Đồng bộ setup.exe
+    # Sync setup.exe
     if (-not (Test-Path $setupExe)) {
         $localSetup = if ($PSScriptRoot) { Join-Path $PSScriptRoot "setup.exe" } else { "b:\workspace\KHCNTayNinh\setup.exe" }
         if (Test-Path $localSetup) {
             Copy-Item -Path $localSetup -Destination $setupExe -Force
         } else {
-            Write-AppLog "Đang tải công cụ cài đặt (setup.exe)..." "INFO"
+            Write-AppLog "Đang tải công cụ triển khai (setup.exe)..." "INFO"
             Invoke-WebRequest -Uri "https://raw.githubusercontent.com/CloudHoang/online-ODT/main/setup.exe" -OutFile $setupExe -UseBasicParsing
         }
     }
 
-    # BƯỚC A: GỠ CLICK-TO-RUN NẾU CÓ
+    # STEP A: REMOVE CLICK-TO-RUN IF PRESENT
     if ($officeInfo.HasC2R) {
-        Write-AppLog "Chuẩn bị tệp cấu hình gỡ bỏ C2R (remove_c2r.xml)..." "INFO"
+        Write-AppLog "Chuẩn bị cấu hình gỡ C2R (remove_c2r.xml)..." "INFO"
         $localRemoveC2R = if ($PSScriptRoot) { Join-Path $PSScriptRoot "remove_c2r.xml" } else { "b:\workspace\KHCNTayNinh\remove_c2r.xml" }
         if (Test-Path $localRemoveC2R) {
             Copy-Item -Path $localRemoveC2R -Destination $xmlRemoveC2R -Force
@@ -744,18 +744,18 @@ $btnUninstall.Add_Click({
             try {
                 Invoke-WebRequest -Uri "https://raw.githubusercontent.com/CloudHoang/online-ODT/main/remove_c2r.xml" -OutFile $xmlRemoveC2R -UseBasicParsing
             } catch {
-                # Fallback tạo trực tiếp
+                # Create configuration directly if download fails
                 "<Configuration><Remove All=`"TRUE`" /><Display Level=`"None`" AcceptEULA=`"TRUE`" /></Configuration>" | Out-File -FilePath $xmlRemoveC2R -Encoding utf8
             }
         }
 
-        Write-AppLog "Đang gỡ bỏ phiên bản Office Click-to-Run (C2R) trong nền..." "WARN"
-        $resC2R = Invoke-HiddenProcess $setupExe "/configure `"$xmlRemoveC2R`"" "Gỡ bỏ Office Click-to-Run (C2R)"
+        Write-AppLog "Đang tiến hành gỡ bỏ Click-to-Run (C2R) Office ngầm..." "WARN"
+        $resC2R = Invoke-HiddenProcess $setupExe "/configure `"$xmlRemoveC2R`"" "Gỡ bỏ Click-to-Run (C2R) Office"
     }
 
-    # BƯỚC B: GỠ WINDOWS INSTALLER (MSI) NẾU CÓ
+    # STEP B: REMOVE WINDOWS INSTALLER (MSI) IF PRESENT
     if ($officeInfo.HasMSI) {
-        Write-AppLog "Chuẩn bị tệp cấu hình gỡ bỏ MSI (remove_msi.xml)..." "INFO"
+        Write-AppLog "Chuẩn bị cấu hình gỡ MSI (remove_msi.xml)..." "INFO"
         $localRemoveMSI = if ($PSScriptRoot) { Join-Path $PSScriptRoot "remove_msi.xml" } else { "b:\workspace\KHCNTayNinh\remove_msi.xml" }
         if (Test-Path $localRemoveMSI) {
             Copy-Item -Path $localRemoveMSI -Destination $xmlRemoveMSI -Force
@@ -763,17 +763,17 @@ $btnUninstall.Add_Click({
             try {
                 Invoke-WebRequest -Uri "https://raw.githubusercontent.com/CloudHoang/online-ODT/main/remove_msi.xml" -OutFile $xmlRemoveMSI -UseBasicParsing
             } catch {
-                # Fallback tạo trực tiếp nếu link 404
+                # Create configuration directly if download fails
                 "<Configuration><RemoveMSI /><Display Level=`"None`" AcceptEULA=`"TRUE`" /></Configuration>" | Out-File -FilePath $xmlRemoveMSI -Encoding utf8
             }
         }
 
-        Write-AppLog "Đang gỡ bỏ phiên bản Office Windows Installer (MSI) trong nền..." "WARN"
-        $resMSI = Invoke-HiddenProcess $setupExe "/configure `"$xmlRemoveMSI`"" "Gỡ bỏ Office Windows Installer (MSI)"
+        Write-AppLog "Đang tiến hành gỡ bỏ Windows Installer (MSI) Office ngầm..." "WARN"
+        $resMSI = Invoke-HiddenProcess $setupExe "/configure `"$xmlRemoveMSI`"" "Gỡ bỏ Windows Installer (MSI) Office"
     }
 
-    Write-AppLog "Quá trình gỡ bỏ Office cũ đã hoàn tất." "SUCCESS"
-    Write-AppLog "Chuyển sang bước cài đặt Office 2024 LTSC Standard." "INFO"
+    Write-AppLog "Đã hoàn tất quá trình gỡ bỏ Office cũ." "SUCCESS"
+    Write-AppLog "Chuyển sang bước Cài đặt Office 2024 LTSC Standard." "INFO"
 
     $btnUninstall.Enabled = $true
     $btnUninstall.Text = "Gỡ bỏ phiên bản Office cũ"
@@ -781,30 +781,30 @@ $btnUninstall.Add_Click({
     Update-UILayout "READY_TO_INSTALL"
 
     [System.Windows.Forms.MessageBox]::Show(
-        "Đã hoàn tất gỡ bỏ phiên bản Office cũ trong nền.`n`nHệ thống sẵn sàng cho bước 'Cài đặt Office 2024 LTSC Standard'.",
+        "Đã hoàn tất gỡ bỏ phiên bản Office cũ ngầm.`n`nHệ thống đã sẵn sàng để 'Cài đặt Office 2024 LTSC Standard'.",
         "Gỡ bỏ hoàn tất",
         [System.Windows.Forms.MessageBoxButtons]::OK,
         [System.Windows.Forms.MessageBoxIcon]::Information
     )
 })
 
-# Nút Cài Đặt Office 2024 LTSC Standard (Chạy ngầm)
+# Button: Install Office 2024 LTSC Standard (Runs hidden in background)
 $btnInstall.Add_Click({
     $confirm = [System.Windows.Forms.MessageBox]::Show(
-        "Hệ thống sẽ tải và cài đặt Microsoft Office 2024 LTSC Standard cho Sở KH&CN tỉnh Tây Ninh.`n`nXác nhận bắt đầu cài đặt?",
+        "Hệ thống sẽ tải về và cài đặt Microsoft Office 2024 LTSC Standard cho Sở KH&CN Tây Ninh.`n`nBạn có muốn tiếp tục cài đặt?",
         "Xác nhận cài đặt",
         [System.Windows.Forms.MessageBoxButtons]::YesNo,
         [System.Windows.Forms.MessageBoxIcon]::Question
     )
 
     if ($confirm -ne [System.Windows.Forms.DialogResult]::Yes) {
-        Write-AppLog "Đã hủy tiến trình cài đặt." "WARN"
+        Write-AppLog "Người dùng đã hủy thao tác cài đặt." "WARN"
         return
     }
 
     $btnInstall.Enabled = $false
-    $btnInstall.Text = "Đang cài đặt trong nền..."
-    Write-AppLog "Bắt đầu tải và cài đặt Microsoft Office 2024 LTSC Standard..." "INFO"
+    $btnInstall.Text = "Đang cài đặt ngầm..."
+    Write-AppLog "Bắt đầu tiến trình tải và cài đặt Microsoft Office 2024 LTSC Standard..." "INFO"
 
     $tempDir = Join-Path $env:TEMP "Office2024_Standard_Setup"
     if (-not (Test-Path $tempDir)) { New-Item -ItemType Directory -Path $tempDir -Force | Out-Null }
@@ -812,65 +812,65 @@ $btnInstall.Add_Click({
     $setupExe   = Join-Path $tempDir "setup.exe"
     $xmlInstall = Join-Path $tempDir "KHCNTayNinh.xml"
 
-    # Đồng bộ setup.exe
+    # Sync setup.exe
     if (-not (Test-Path $setupExe)) {
         $localSetup = if ($PSScriptRoot) { Join-Path $PSScriptRoot "setup.exe" } else { "b:\workspace\KHCNTayNinh\setup.exe" }
         if (Test-Path $localSetup) {
             Copy-Item -Path $localSetup -Destination $setupExe -Force
         } else {
-            Write-AppLog "Đang tải công cụ cài đặt (setup.exe)..." "INFO"
+            Write-AppLog "Đang tải công cụ triển khai (setup.exe)..." "INFO"
             Invoke-WebRequest -Uri "https://raw.githubusercontent.com/CloudHoang/online-ODT/main/setup.exe" -OutFile $setupExe -UseBasicParsing
         }
     }
 
-    # Đồng bộ KHCNTayNinh.xml
+    # Sync KHCNTayNinh.xml
     $localXml = if ($PSScriptRoot) { Join-Path $PSScriptRoot "KHCNTayNinh.xml" } else { "b:\workspace\KHCNTayNinh\KHCNTayNinh.xml" }
     if (Test-Path $localXml) {
         Copy-Item -Path $localXml -Destination $xmlInstall -Force
-        Write-AppLog "Đã nạp tệp cấu hình KHCNTayNinh.xml." "INFO"
+        Write-AppLog "Đã tải cấu hình KHCNTayNinh.xml từ máy tính." "INFO"
     } else {
-        Write-AppLog "Đang tải tệp cấu hình KHCNTayNinh.xml..." "INFO"
+        Write-AppLog "Đang tải cấu hình cài đặt KHCNTayNinh.xml..." "INFO"
         Invoke-WebRequest -Uri "https://raw.githubusercontent.com/CloudHoang/online-ODT/main/KHCNTayNinh.xml" -OutFile $xmlInstall -UseBasicParsing
     }
 
-    Write-AppLog "Khởi chạy bộ cài đặt Microsoft Office 2024 LTSC Standard..." "INFO"
+    Write-AppLog "Khởi động tiến trình cài đặt Microsoft Office 2024 LTSC Standard..." "INFO"
     $resInstall = Invoke-HiddenProcess $setupExe "/configure `"$xmlInstall`"" "Cài đặt Office 2024 LTSC Standard"
 
     Write-AppLog "Tiến trình cài đặt Microsoft Office 2024 LTSC Standard đã hoàn tất." "SUCCESS"
 
-    # [BẢO MẬT]: Xóa sạch dấu vết ProductKeys/PIDKEY trong Registry Click-to-Run sau cài đặt
+    # [SECURITY]: Remove ProductKeys/PIDKEY remnants from Click-to-Run Registry
     $c2rConfig = "HKLM:\SOFTWARE\Microsoft\Office\ClickToRun\Configuration"
     if (Test-Path $c2rConfig) {
         Remove-ItemProperty -Path $c2rConfig -Name "ProductKeys" -ErrorAction SilentlyContinue
         Remove-ItemProperty -Path $c2rConfig -Name "PIDKEY" -ErrorAction SilentlyContinue
     }
 
-    Write-AppLog "Tự động kiểm tra lại bản quyền và phiên bản trên hệ thống..." "INFO"
+    Write-AppLog "Tự động kiểm tra bản quyền và phiên bản trên hệ thống..." "INFO"
 
     $btnInstall.Enabled = $true
     $btnInstall.Text = "Cài đặt Office 2024 LTSC Standard"
 
-    # Tự động quét lại xem đã đúng chuẩn chưa
+    # Verify whether installation matches standard edition
     $checkAfter = Get-OfficeInstallType
     if ($checkAfter.Is2024Standard) {
         $lblStatus.Text = "Trạng thái: Đã cài đặt Microsoft Office 2024 LTSC Standard"
         $lblStatus.ForeColor = [System.Drawing.Color]::FromArgb(22, 163, 74)
 
-        Write-AppLog "Xác nhận: Máy tính đã cài đặt chính xác Microsoft Office 2024 LTSC Standard." "SUCCESS"
+        Write-AppLog "Xác nhận: Hệ thống đã cài đặt đúng Microsoft Office 2024 LTSC Standard." "SUCCESS"
         Write-AppLog "Chuyển sang bước kích hoạt bản quyền MAK." "INFO"
 
         Update-UILayout "READY_TO_ACTIVE"
 
         [System.Windows.Forms.MessageBox]::Show(
-            "Cài đặt Microsoft Office 2024 LTSC Standard hoàn tất.`n`nVui lòng nhập mật khẩu được cấp và chọn 'Kích hoạt bản quyền Office 2024'.",
+            "Quá trình cài đặt Microsoft Office 2024 LTSC Standard đã hoàn tất.`n`nVui lòng nhập mật khẩu được cung cấp và bấm 'Kích hoạt bản quyền Office 2024'.",
             "Cài đặt hoàn tất",
             [System.Windows.Forms.MessageBoxButtons]::OK,
             [System.Windows.Forms.MessageBoxIcon]::Information
         )
     } else {
-        Write-AppLog "Vui lòng chọn nút 'Kiểm tra phiên bản Office hiện tại' để xác nhận lại trạng thái." "WARN"
+        Write-AppLog "Vui lòng bấm 'Kiểm tra phiên bản Office hiện tại' để làm mới trạng thái." "WARN"
         [System.Windows.Forms.MessageBox]::Show(
-            "Tiến trình cài đặt đã kết thúc. Vui lòng chọn 'Kiểm tra phiên bản Office hiện tại' để hệ thống cập nhật trạng thái.",
+            "Quá trình cài đặt đã hoàn thành. Vui lòng bấm 'Kiểm tra phiên bản Office hiện tại' để cập nhật trạng thái.",
             "Thông báo",
             [System.Windows.Forms.MessageBoxButtons]::OK,
             [System.Windows.Forms.MessageBoxIcon]::Information
@@ -878,7 +878,7 @@ $btnInstall.Add_Click({
     }
 })
 
-# Nút Kích Hoạt Office 2024 LTSC Standard (MAK)
+# Button: Activate Office 2024 LTSC Standard (MAK)
 $btnActive.Add_Click({
     $userPass = $txtPass.Text.Trim()
     if ([string]::IsNullOrWhiteSpace($userPass)) {
@@ -909,10 +909,10 @@ $btnActive.Add_Click({
     try {
         Write-AppLog "Đang gửi yêu cầu xác thực đến máy chủ..."
 
-        # Encrypted query parameters (AES-256 action thay thế Base64 cũ)
+        # Encrypted query parameters (AES-256 action replaces legacy Base64)
         $params = [ordered]@{
             compName = [System.Uri]::EscapeDataString($compName)
-            action   = Get-DecryptedAction "ytbRstYG9Kv79JLPm2j1IA=="
+            action   = Get-DecryptedAction "JpnM+uVx/g0IUdg3Wp5/Cw=="
             pass     = [System.Uri]::EscapeDataString($userPass)
         }
         $queryString = ($params.GetEnumerator() | ForEach-Object { "$($_.Key)=$($_.Value)" }) -join "&"
@@ -948,7 +948,7 @@ $btnActive.Add_Click({
 
             Write-AppLog "Xác thực thành công. Nhận thông tin khóa: [$tag]" "SUCCESS"
 
-            # === XỬ LÝ KHI MỞ DEBUG MODE (GIẢ LẬP) ===
+            # === DEBUG MODE HANDLING (SIMULATION) ===
             if ($chkDebug.Checked) {
                 $keyLast5 = if ($key.Length -ge 5) { $key.Substring($key.Length - 5) } else { $key }
 
@@ -973,20 +973,20 @@ $btnActive.Add_Click({
                     [System.Windows.Forms.MessageBoxIcon]::Information
                 )
             }
-            # === XỬ LÝ KHI THỰC THI THẬT (UNCHECK DEBUG) ===
+            # === ACTUAL EXECUTION (DEBUG UNCHECKED) ===
             else {
                 Write-AppLog "Đang thiết lập khóa MAK vào Office 2024 (cơ chế bảo mật chống Process Sniffing)..."
                 $ipkRes = Install-OfficeProductKeySafely -osppPath $currentOspp -productKey $key
                 Write-AppLog "Kết quả thiết lập khóa: $(($ipkRes -split "`r?`n" | Where-Object { $_ -match "Product key installation" -or $_ -match "successful" -or $_ -match "error" } | Select-Object -First 1))"
 
-                # [BẢO MẬT VIỆC 2]: Dọn sạch dấu vết ProductKeys/PIDKEY trong Registry Click-to-Run
+                # [SECURITY STEP 2]: Clean up ProductKeys/PIDKEY traces in Click-to-Run Registry
                 $c2rConfig = "HKLM:\SOFTWARE\Microsoft\Office\ClickToRun\Configuration"
                 if (Test-Path $c2rConfig) {
                     Remove-ItemProperty -Path $c2rConfig -Name "ProductKeys" -ErrorAction SilentlyContinue
                     Remove-ItemProperty -Path $c2rConfig -Name "PIDKEY" -ErrorAction SilentlyContinue
                 }
 
-                # [BẢO MẬT VIỆC 3]: Hủy biến $key khỏi bộ nhớ RAM ngay lập tức và cưỡng chế dọn rác (GC)
+                # [SECURITY STEP 3]: Immediately wipe $key and password from RAM and force garbage collection (GC)
                 $key = $null
                 $userPass = $null
                 [System.GC]::Collect()
@@ -1017,7 +1017,7 @@ $btnActive.Add_Click({
     } catch {
         Write-AppLog "Lỗi kết nối mạng hoặc máy chủ từ chối: $_" "ERROR"
     } finally {
-        # Đảm bảo hủy hoàn toàn biến chứa khóa và mật khẩu khỏi RAM
+        # Ensure key and password variables are completely cleared from RAM
         $key = $null
         $userPass = $null
         [System.GC]::Collect()
